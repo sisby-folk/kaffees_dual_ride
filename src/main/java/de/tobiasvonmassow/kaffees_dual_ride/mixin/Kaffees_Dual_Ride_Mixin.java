@@ -7,14 +7,12 @@ import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
+import org.spongepowered.asm.mixin.Shadow;
 
 @Mixin(AbstractHorseEntity.class)
 public abstract class Kaffees_Dual_Ride_Mixin extends AnimalEntity {
@@ -23,24 +21,22 @@ public abstract class Kaffees_Dual_Ride_Mixin extends AnimalEntity {
 		super((EntityType<? extends AnimalEntity>) arg, arg2);
 	}
 
-	@Inject(at = @At(value = "TAIL"), method = "updatePassengerPosition(Lnet/minecraft/entity/Entity;Lnet/minecraft/entity/Entity$PositionUpdater;)V", locals = LocalCapture.CAPTURE_FAILHARD)
-	private void injected(Entity passenger, Entity.PositionUpdater positionUpdater, CallbackInfo ci) {
-		// don't reposition riders if there is only one rider
-		if (((AbstractHorseEntity) (Object) this).getPassengerList().size() < 2)
-			return;
-		// set passengerposition to the position of the horse
-		int i = ((AbstractHorseEntity) (Object) this).getPassengerList().indexOf(passenger);
-		// horizontal offset
-		float horizontal_offset = (float) ((((AbstractHorseEntity) (Object) this).isRemoved() ? (double) 0.01f
-				: ((AbstractHorseEntity) (Object) this).getMountedHeightOffset()) + passenger.getHeightOffset());
-		// first passenger is offset by 0.2, second passenger is offset by -0.6
-		float x_offset = i == 0 ? 0.2f : -0.6f;
-		// rotate passengers with horse
-		Vec3d vec3d = new Vec3d(x_offset, 0.0, 0.0)
-				.rotateY(-((AbstractHorseEntity) (Object) this).getYaw() * ((float) Math.PI / 180) - 1.5707964f);
-		passenger.setPosition(((AbstractHorseEntity) (Object) this).getX() + vec3d.x,
-				((AbstractHorseEntity) (Object) this).getY() + (double) horizontal_offset,
-				((AbstractHorseEntity) (Object) this).getZ() + vec3d.z);
+	@Shadow
+	private float lastAngryAnimationProgress;
+
+	@Override
+	public void updatePassengerPosition(Entity passenger, Entity.PositionUpdater positionUpdater) {
+		int n = this.getPassengerList().indexOf(passenger);
+		float offset = 0;
+		if (this.getPassengerList().size() > 1) {
+			offset = n == 0 ? 0.2f : -0.6f;
+		}
+		Vec3d vec3d = (new Vec3d(offset, 0.0, 0.0)).rotateY(-this.getYaw() * 0.017453292F - 1.5707964F);
+		float f = MathHelper.sin(this.bodyYaw * 0.017453292F);
+		float g = MathHelper.cos(this.bodyYaw * 0.017453292F);
+		float h = 0.7F * this.lastAngryAnimationProgress;
+		float i = 0.15F * this.lastAngryAnimationProgress;
+		positionUpdater.accept(passenger, this.getX() + vec3d.x + (double) (h * f), this.getY() + this.getMountedHeightOffset() + passenger.getHeightOffset() + (double) i, this.getZ() + vec3d.z - (double) (h * g));
 	}
 
 	// abstract class + constructor required, so I can extend AnimalEntity to
